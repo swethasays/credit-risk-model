@@ -54,16 +54,30 @@ def generate_explanation(prob, risk_tier, top_factors):
             from langchain_core.prompts import PromptTemplate
             from langchain_core.output_parsers import StrOutputParser
 
-            llm    = ChatGroq(model="llama3-8b-8192", temperature=0.3, api_key=groq_key)
-            prompt = PromptTemplate.from_template(
-                "You are a credit risk analyst at a bank. "
-                "A customer has a {risk_tier} risk level "
-                "with a {prob:.0%} probability of defaulting on their loan. "
-                "The top contributing factors are: {factors}. "
-                "Write a 2-sentence professional explanation for a loan officer."
-            )
+            llm = ChatGroq(model="llama3-8b-8192", temperature=0.4, api_key=groq_key)
+            prompt = PromptTemplate.from_template("""
+You are a senior credit risk analyst at a retail bank writing a formal loan assessment report.
+
+Customer Risk Summary:
+- Risk Tier: {risk_tier}
+- Probability of Default: {prob:.0%}
+- Top Contributing Factors: {factors}
+
+Write a professional credit risk assessment with these 4 sections:
+
+1. OVERALL ASSESSMENT (1 sentence - clear verdict on the customer)
+2. KEY RISK DRIVERS (2-3 sentences - explain what the top factors mean in plain English and why they matter)
+3. MITIGATING FACTORS (1 sentence - mention anything that reduces risk, or state none identified)
+4. RECOMMENDATION (1 sentence - approve, decline, or conditional approval with conditions)
+
+Use professional banking language. Be specific and data-driven. Do not use bullet points.
+""")
             chain = prompt | llm | StrOutputParser()
-            return chain.invoke({"risk_tier": risk_tier, "prob": prob, "factors": factors_text})
+            return chain.invoke({
+                "risk_tier": risk_tier,
+                "prob":      prob,
+                "factors":   factors_text
+            })
         except Exception as e:
             print(f"Groq error: {e}")
 
@@ -216,7 +230,9 @@ with tab1:
 
             # LLM explanation
             st.subheader("Analyst Explanation")
-            st.info(explanation)
+            with st.container(border=True):
+                st.markdown("##### Credit Risk Assessment Report")
+                st.markdown(explanation)
 
 with tab2:
     st.subheader("Model Performance")
