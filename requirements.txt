@@ -14,3 +14,5 @@ seaborn==0.13.2
 joblib==1.4.2
 python-dotenv==1.0.1
 jupyter==1.0.0
+langchain-groq==0.2.3
+langchain-core==0.3.15
