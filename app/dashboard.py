@@ -6,9 +6,13 @@ import plotly.graph_objects as go
 import joblib
 import shap
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Load Groq key — Streamlit Cloud secrets take priority over .env
+try:
+    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+except:
+    from dotenv import load_dotenv
+    load_dotenv()
 
 st.set_page_config(
     page_title="Credit Risk Dashboard",
