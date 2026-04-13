@@ -81,102 +81,66 @@ tab1, tab2 = st.tabs(["Predict", "Model Performance"])
 
 with tab1:
     st.subheader("Customer Profile")
+    st.caption("Fill in the customer's financial details and click Predict. Hover over the ? icons to learn what each field means.")
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        revolving_util = st.slider("Revolving Utilization", 0.0, 1.0, 0.5)
-        age            = st.slider("Age", 18, 100, 45)
-        monthly_income = st.number_input("Monthly Income ($)", 0, 100000, 5000)
-        debt_ratio     = st.slider("Debt Ratio", 0.0, 1.0, 0.3)
+        revolving_util = st.slider(
+            "Revolving Utilization",
+            0.0, 1.0, 0.5,
+            help="How much of the credit card limit is being used. 0.9 = using 90% of limit. Above 0.6 is risky.")
+        age = st.slider(
+            "Age",
+            18, 100, 45,
+            help="Customer's age. Younger customers tend to have higher default rates.")
+        monthly_income = st.number_input(
+            "Monthly Income ($)",
+            0, 100000, 5000,
+            help="Gross monthly income in dollars. Higher income generally means lower risk.")
+        debt_ratio = st.slider(
+            "Debt Ratio",
+            0.0, 1.0, 0.3,
+            help="Monthly debt payments divided by monthly income. Above 0.5 is concerning.")
 
     with col2:
-        past_due_30_59 = st.number_input("Times 30-59 Days Past Due", 0, 20, 0)
-        past_due_60_89 = st.number_input("Times 60-89 Days Past Due", 0, 20, 0)
-        times_90_late  = st.number_input("Times 90+ Days Late",        0, 20, 0)
-        dependents     = st.number_input("Number of Dependents",       0, 20, 1)
+        past_due_30_59 = st.number_input(
+            "Times 30-59 Days Past Due",
+            0, 20, 0,
+            help="How many times the customer was 30-59 days late on a payment. Even 1-2 is a warning sign.")
+        past_due_60_89 = st.number_input(
+            "Times 60-89 Days Past Due",
+            0, 20, 0,
+            help="How many times the customer was 60-89 days late. More serious than 30-59 days.")
+        times_90_late = st.number_input(
+            "Times 90+ Days Late",
+            0, 20, 0,
+            help="How many times the customer was 90+ days late. This is a major red flag for default risk.")
+        dependents = st.number_input(
+            "Number of Dependents",
+            0, 20, 1,
+            help="Number of people financially dependent on this customer (children, elderly parents etc).")
 
     with col3:
-        open_credits   = st.number_input("Open Credit Lines", 0, 50, 5)
-        real_estate    = st.number_input("Real Estate Loans", 0, 20, 1)
+        open_credits = st.number_input(
+            "Open Credit Lines",
+            0, 50, 5,
+            help="Total number of open loans and credit cards. Very high numbers can indicate financial stress.")
+        real_estate = st.number_input(
+            "Real Estate Loans",
+            0, 20, 1,
+            help="Number of mortgage or real estate loans. Having 1-2 is normal and generally a positive signal.")
 
-    # Derived features
-    debt_to_income = debt_ratio * monthly_income
-    total_past_due = int(past_due_30_59 + past_due_60_89 + times_90_late)
-    if revolving_util < 0.3:
-        credit_util_bucket = 0.0
-    elif revolving_util < 0.6:
-        credit_util_bucket = 1.0
-    elif revolving_util < 0.9:
-        credit_util_bucket = 2.0
-    else:
-        credit_util_bucket = 3.0
-
-    if st.button("Predict Default Risk", type="primary"):
-        input_data = np.array([[
-            revolving_util,
-            age,
-            int(past_due_30_59),
-            debt_ratio,
-            float(monthly_income),
-            int(open_credits),
-            int(times_90_late),
-            int(real_estate),
-            int(past_due_60_89),
-            float(dependents),
-            float(debt_to_income),
-            total_past_due,
-            credit_util_bucket
-        ]])
-
-        with st.spinner("Analysing customer profile..."):
-            prob        = float(model.predict_proba(input_data)[0][1])
-            risk_tier   = get_risk_tier(prob)
-            shap_vals   = explainer.shap_values(input_data)[0]
-            top_factors = get_top_shap_factors(shap_vals, features)
-            explanation = generate_explanation(prob, risk_tier, top_factors)
-
-            color = {"Low": "green", "Medium": "orange", "High": "red"}[risk_tier]
-
-            st.divider()
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Default Probability", f"{prob:.1%}")
-            m2.metric("Risk Tier", risk_tier)
-            m3.metric("Total Past Due Events", total_past_due)
-
-            # Gauge chart
-            fig = go.Figure(go.Indicator(
-                mode  = "gauge+number",
-                value = prob * 100,
-                title = {"text": "Default Probability (%)"},
-                gauge = {
-                    "axis":  {"range": [0, 100]},
-                    "bar":   {"color": color},
-                    "steps": [
-                        {"range": [0,  15], "color": "#d4edda"},
-                        {"range": [15, 40], "color": "#fff3cd"},
-                        {"range": [40, 100],"color": "#f8d7da"},
-                    ]
-                }
-            ))
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-
-            # SHAP factors bar
-            st.subheader("Top Risk Factors")
-            factor_df = pd.DataFrame(top_factors)
-            colors    = ["red" if x > 0 else "green" for x in factor_df["impact"]]
-            fig2, ax  = plt.subplots(figsize=(8, 3))
-            ax.barh(factor_df["feature"], factor_df["impact"], color=colors)
-            ax.set_xlabel("SHAP Impact")
-            ax.set_title("Feature contributions to this prediction")
-            ax.axvline(0, color="black", linewidth=0.8)
-            st.pyplot(fig2)
-
-            # LLM explanation
-            st.subheader("Analyst Explanation")
-            st.info(explanation)
-
+    # Risk guide
+    with st.expander("How to interpret the results"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.success("**Low Risk** (< 15%)\nCustomer is unlikely to default. Loan can likely be approved.")
+        with c2:
+            st.warning("**Medium Risk** (15–40%)\nCustomer shows some risk factors. Consider further review or conditions.")
+        with c3:
+            st.error("**High Risk** (> 40%)\nCustomer has significant default risk. Careful assessment recommended.")
+            
 with tab2:
     st.subheader("Model Performance")
 
