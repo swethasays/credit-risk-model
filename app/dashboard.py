@@ -140,7 +140,84 @@ with tab1:
             st.warning("**Medium Risk** (15–40%)\nCustomer shows some risk factors. Consider further review or conditions.")
         with c3:
             st.error("**High Risk** (> 40%)\nCustomer has significant default risk. Careful assessment recommended.")
-            
+
+    # Derived features
+    debt_to_income = debt_ratio * monthly_income
+    total_past_due = int(past_due_30_59 + past_due_60_89 + times_90_late)
+    if revolving_util < 0.3:
+        credit_util_bucket = 0.0
+    elif revolving_util < 0.6:
+        credit_util_bucket = 1.0
+    elif revolving_util < 0.9:
+        credit_util_bucket = 2.0
+    else:
+        credit_util_bucket = 3.0
+
+    if st.button("Predict Default Risk", type="primary"):
+        input_data = np.array([[
+            revolving_util,
+            age,
+            int(past_due_30_59),
+            debt_ratio,
+            float(monthly_income),
+            int(open_credits),
+            int(times_90_late),
+            int(real_estate),
+            int(past_due_60_89),
+            float(dependents),
+            float(debt_to_income),
+            total_past_due,
+            credit_util_bucket
+        ]])
+
+        with st.spinner("Analysing customer profile..."):
+            prob        = float(model.predict_proba(input_data)[0][1])
+            risk_tier   = get_risk_tier(prob)
+            shap_vals   = explainer.shap_values(input_data)[0]
+            top_factors = get_top_shap_factors(shap_vals, features)
+            explanation = generate_explanation(prob, risk_tier, top_factors)
+
+            color = {"Low": "green", "Medium": "orange", "High": "red"}[risk_tier]
+
+            st.divider()
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Default Probability", f"{prob:.1%}")
+            m2.metric("Risk Tier", risk_tier)
+            m3.metric("Total Past Due Events", total_past_due)
+
+            # Gauge chart
+            fig = go.Figure(go.Indicator(
+                mode  = "gauge+number",
+                value = prob * 100,
+                title = {"text": "Default Probability (%)"},
+                gauge = {
+                    "axis":  {"range": [0, 100]},
+                    "bar":   {"color": color},
+                    "steps": [
+                        {"range": [0,  15], "color": "#d4edda"},
+                        {"range": [15, 40], "color": "#fff3cd"},
+                        {"range": [40, 100],"color": "#f8d7da"},
+                    ]
+                }
+            ))
+            fig.update_layout(height=300)
+            st.plotly_chart(fig, use_container_width=True)
+
+            # SHAP factors bar
+            st.subheader("Top Risk Factors")
+            factor_df = pd.DataFrame(top_factors)
+            colors    = ["red" if x > 0 else "green" for x in factor_df["impact"]]
+            fig2, ax  = plt.subplots(figsize=(8, 3))
+            ax.barh(factor_df["feature"], factor_df["impact"], color=colors)
+            ax.set_xlabel("SHAP Impact")
+            ax.set_title("Feature contributions to this prediction")
+            ax.axvline(0, color="black", linewidth=0.8)
+            st.pyplot(fig2)
+
+            # LLM explanation
+            st.subheader("Analyst Explanation")
+            st.info(explanation)
+
 with tab2:
     st.subheader("Model Performance")
 
