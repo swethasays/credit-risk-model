@@ -145,10 +145,10 @@ pip install -r requirements.txt
 echo 'GROQ_API_KEY=your_key_here' > .env
 ```
 
-**3. Train the model**
+**3. Train the model**  — run notebooks in order
 
 ```bash
-jupyter notebook notebooks/02_modeling.ipynb
+jupyter notebook notebooks/01_eda.ipynb
 ```
 
 ```bash
