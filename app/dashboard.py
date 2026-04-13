@@ -183,21 +183,41 @@ with tab2:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.metric("XGBoost ROC-AUC",    "0.86")
-        st.metric("Baseline LR ROC-AUC","0.82")
-        st.metric("Training samples",   "120,000")
-        st.metric("Test samples",       "30,000")
+        st.metric("XGBoost ROC-AUC",     "0.86")
+        st.metric("Baseline LR ROC-AUC", "0.82")
+        st.metric("Training samples",    "120,000")
+        st.metric("Test samples",        "30,000")
 
     with col2:
-        st.markdown("**SHAP plots**")
         try:
-            st.image("reports/shap_bar.png",       caption="Global feature importance")
-            st.image("reports/shap_beeswarm.png",  caption="SHAP beeswarm")
-            st.image("reports/shap_waterfall.png", caption="Single prediction waterfall")
+            st.image("reports/model_performance.png",
+                     caption="ROC curve + confusion matrix",
+                     use_column_width=True)
         except:
-            st.info("Run the modeling notebook first to generate SHAP plots.")
+            pass
 
-    try:
-        st.image("reports/model_performance.png", caption="ROC curve + confusion matrix")
-    except:
-        pass
+    st.divider()
+    st.markdown("**SHAP explainability**")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        try:
+            st.image("reports/shap_bar.png",
+                     caption="Global feature importance",
+                     use_column_width=True)
+        except:
+            st.info("Run modeling notebook first.")
+    with c2:
+        try:
+            st.image("reports/shap_beeswarm.png",
+                     caption="Beeswarm plot",
+                     use_column_width=True)
+        except:
+            pass
+    with c3:
+        try:
+            st.image("reports/shap_waterfall.png",
+                     caption="Single prediction waterfall",
+                     use_column_width=True)
+        except:
+            pass
