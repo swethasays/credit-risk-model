@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 import joblib
 import shap
 import os
-import re
 
 st.set_page_config(
     page_title="Credit Risk Dashboard",
@@ -62,30 +61,22 @@ def generate_explanation(prob, risk_tier, top_factors):
             from langchain_core.prompts import PromptTemplate
             from langchain_core.output_parsers import StrOutputParser
 
-            llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.4, api_key=GROQ_API_KEY)
+            llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3, api_key=GROQ_API_KEY)
             prompt = PromptTemplate.from_template("""
-You are a senior credit risk analyst at a retail bank writing a formal loan assessment report.
+You are a senior credit risk analyst. Write a credit assessment using EXACTLY this format.
+Each label must appear exactly once, at the start of its line, followed by a colon and a space, then the content.
+Do not repeat any label. Do not add any extra text before OVERALL.
 
-Customer Risk Summary:
-- Risk Tier: {risk_tier}
-- Probability of Default: {prob:.0%}
-- Top Contributing Factors: {factors}
+OVERALL: [one sentence verdict on the customer based on {risk_tier} risk and {prob:.0%} default probability]
+DRIVERS: [2-3 sentences explaining these factors in plain English: {factors}]
+MITIGATING: [one sentence on what reduces this customer risk, or state: No significant mitigating factors identified]
+RECOMMENDATION: [one sentence - approve, decline, or conditional approval with conditions]
 
-Write a professional credit risk assessment with these 4 sections. Use exactly these bold headers:
-
-**1. OVERALL ASSESSMENT**
-(1 sentence - clear verdict on the customer)
-
-**2. KEY RISK DRIVERS**
-(2-3 sentences - explain what the top factors mean in plain English and why they matter)
-
-**3. MITIGATING FACTORS**
-(1 sentence - mention anything that reduces risk, or state none identified)
-
-**4. RECOMMENDATION**
-(1 sentence - approve, decline, or conditional approval with conditions)
-
-Use professional banking language. Be specific and data-driven. Do not use bullet points.
+Rules:
+- Output exactly 4 lines, one per label
+- No bullet points, no HTML, no markdown, no code blocks, no backticks
+- Do not repeat labels
+- Professional banking language only
 """)
             chain = prompt | llm | StrOutputParser()
             return chain.invoke({
@@ -97,10 +88,52 @@ Use professional banking language. Be specific and data-driven. Do not use bulle
             st.warning(f"Groq error: {e}")
 
     return (
-        f"This customer presents a {risk_tier.lower()} credit risk with a "
-        f"{prob:.0%} estimated probability of default. "
-        f"Key contributing factors include {factors_text}."
+        f"OVERALL: This customer presents a {risk_tier.lower()} credit risk with a {prob:.0%} probability of default.\n"
+        f"DRIVERS: Key factors include {factors_text}.\n"
+        f"MITIGATING: No significant mitigating factors identified.\n"
+        f"RECOMMENDATION: Further manual review is recommended before making a final decision."
     )
+
+
+def render_explanation(explanation):
+    section_map = {
+        "OVERALL":        ("🔵 Overall Assessment", "info"),
+        "DRIVERS":        ("🔴 Key Risk Drivers",    "error"),
+        "MITIGATING":     ("🟢 Mitigating Factors",  "success"),
+        "RECOMMENDATION": ("🟡 Recommendation",      "warning"),
+    }
+
+    # Clean any markdown or HTML artifacts
+    clean = explanation
+    for artifact in ["**", "```", "</div>", "<div>", "`"]:
+        clean = clean.replace(artifact, "")
+    clean = clean.strip()
+
+    # Parse each line — match KEY: content format, ignore duplicates
+    found = {key: None for key in section_map}
+    for line in clean.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        for key in section_map:
+            if line.upper().startswith(key + ":"):
+                body = line[len(key)+1:].strip()
+                if found[key] is None:
+                    found[key] = body
+                break
+
+    # Render in order using native Streamlit components
+    for key, (label, stype) in section_map.items():
+        body = found[key] or "No information available."
+        msg  = f"**{label}**\n\n{body}"
+        if stype == "info":
+            st.info(msg)
+        elif stype == "error":
+            st.error(msg)
+        elif stype == "success":
+            st.success(msg)
+        elif stype == "warning":
+            st.warning(msg)
 
 
 st.title("🏦 Credit Risk Prediction Dashboard")
@@ -221,59 +254,8 @@ with tab1:
             st.pyplot(fig2)
 
             st.subheader("Analyst Explanation")
+            render_explanation(explanation)
 
-            section_colors = {
-                "OVERALL ASSESSMENT": ("🔵", "#e8f4fd", "#1a6fa8"),
-                "OVERVIEW ASSESSMENT": ("🔵", "#e8f4fd", "#1a6fa8"),
-                "KEY RISK DRIVERS":    ("🔴", "#fdf0f0", "#a83232"),
-                "MITIGATING FACTORS":  ("🟢", "#f0fdf4", "#2d8a4e"),
-                "RECOMMENDATION":      ("🟡", "#fffdf0", "#a87c1a"),
-            }
-
-            clean = explanation.replace("**", "").strip()
-            
-            parsed = []
-            current_key = None
-            current_lines = []
-
-            for line in clean.split("\n"):
-                line = line.strip()
-                if not line:
-                    continue
-                matched_key = None
-                for key in section_colors:
-                    if key in line.upper():
-                        matched_key = key
-                        break
-                if matched_key:
-                    if current_key:
-                        parsed.append((current_key, " ".join(current_lines).strip()))
-                    current_key = matched_key
-                    # grab any text after the header on the same line
-                    after = line.upper().find(matched_key) + len(matched_key)
-                    remainder = line[after:].strip(" .:*")
-                    current_lines = [remainder] if remainder else []
-                else:
-                    current_lines.append(line)
-
-            if current_key:
-                parsed.append((current_key, " ".join(current_lines).strip()))
-
-            for key, body in parsed:
-                icon, bg, color = section_colors[key]
-                st.markdown(
-                    f"""<div style="background:{bg}; border-left:4px solid {color};
-                                padding:12px 16px; border-radius:6px; margin-bottom:10px;">
-                        <div style="color:{color}; font-weight:700; font-size:14px; margin-bottom:6px;">
-                            {icon} {key}
-                        </div>
-                        <div style="color:#333; font-size:14px; line-height:1.6;">
-                            {body}
-                        </div>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
-                
 with tab2:
     st.subheader("Model Performance")
 
@@ -287,7 +269,7 @@ with tab2:
         try:
             st.image("reports/model_performance.png",
                      caption="ROC curve + confusion matrix",
-                     use_column_width=True)
+                     use_container_width=True)
         except:
             pass
 
@@ -298,20 +280,20 @@ with tab2:
         try:
             st.image("reports/shap_bar.png",
                      caption="Global feature importance",
-                     use_column_width=True)
+                     use_container_width=True)
         except:
             st.info("Run modeling notebook first.")
     with c2:
         try:
             st.image("reports/shap_beeswarm.png",
                      caption="Beeswarm plot",
-                     use_column_width=True)
+                     use_container_width=True)
         except:
             pass
     with c3:
         try:
             st.image("reports/shap_waterfall.png",
                      caption="Single prediction waterfall",
-                     use_column_width=True)
+                     use_container_width=True)
         except:
             pass
