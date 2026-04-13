@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import joblib
 import shap
 import os
+import re
 
 st.set_page_config(
     page_title="Credit Risk Dashboard",
@@ -230,6 +231,7 @@ with tab1:
             }
 
             clean = explanation.replace("**", "").strip()
+            
             parsed = []
             current_key = None
             current_lines = []
@@ -271,6 +273,7 @@ with tab1:
                     </div>""",
                     unsafe_allow_html=True
                 )
+                
 with tab2:
     st.subheader("Model Performance")
 
