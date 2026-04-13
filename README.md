@@ -2,6 +2,12 @@
 
 > End-to-end ML pipeline that predicts loan default probability in real time — with explainable AI and LLM-generated analyst reports.
 
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![XGBoost](https://img.shields.io/badge/XGBoost-2.0-orange)
+![Streamlit](https://img.shields.io/badge/Streamlit-deployed-red)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-green)
+![Groq](https://img.shields.io/badge/Groq-Llama3.3-purple)
+
 ### 🔴 [Live Demo → credit-risk-swetha.streamlit.app](https://credit-risk-swetha.streamlit.app)
 
 ---
@@ -80,6 +86,32 @@ Streamlit app with input sliders, gauge chart, colour-coded SHAP bar chart, and 
 
 ---
 
+## System design
+
+    [User / Loan Officer]
+           ↓
+    [Streamlit Dashboard]   ← input sliders, gauge, SHAP chart
+           ↓
+    [Prediction Engine]     ← XGBoost model + TreeSHAP (in-process)
+           ↓
+    [FastAPI REST API]      ← POST /predict, Pydantic validation
+           ↓
+    [LangChain + Groq]      ← prompt → Llama 3.3 70B → structured report
+           ↓
+    [Streamlit Dashboard]   ← renders 4-section analyst report
+
+---
+
+## If this were production
+
+- **Model retraining** — scheduled weekly retraining pipeline (Airflow or cron) on fresh loan data
+- **Monitoring** — data drift detection using Evidently AI to catch feature distribution shifts
+- **Auth** — JWT-based authentication on the FastAPI endpoint before exposing to loan officers
+- **Database** — log every prediction to PostgreSQL for audit trail and regulatory compliance
+- **CI/CD** — GitHub Actions to run tests and auto-deploy on every push to main
+
+---
+
 ## Sample API response
 
 ```json
@@ -114,6 +146,10 @@ echo 'GROQ_API_KEY=your_key_here' > .env
 ```
 
 **3. Train the model**
+
+```bash
+jupyter notebook notebooks/02_modeling.ipynb
+```
 
 ```bash
 jupyter notebook notebooks/02_modeling.ipynb
