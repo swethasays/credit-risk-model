@@ -268,10 +268,9 @@ with tab2:
     with col2:
         try:
             st.image("reports/model_performance.png",
-                     caption="ROC curve + confusion matrix",
-                     use_container_width=True)
-        except:
-            pass
+                     caption="ROC curve + confusion matrix")
+        except Exception as e:
+            st.error(f"model_performance.png error: {e}")
 
     st.divider()
     st.markdown("**SHAP explainability**")
@@ -279,21 +278,18 @@ with tab2:
     with c1:
         try:
             st.image("reports/shap_bar.png",
-                     caption="Global feature importance",
-                     use_container_width=True)
-        except:
-            st.info("Run modeling notebook first.")
+                     caption="Global feature importance")
+        except Exception as e:
+            st.error(f"shap_bar.png error: {e}")
     with c2:
         try:
             st.image("reports/shap_beeswarm.png",
-                     caption="Beeswarm plot",
-                     use_container_width=True)
-        except:
-            pass
+                     caption="Beeswarm plot")
+        except Exception as e:
+            st.error(f"shap_beeswarm.png error: {e}")
     with c3:
         try:
             st.image("reports/shap_waterfall.png",
-                     caption="Single prediction waterfall",
-                     use_container_width=True)
-        except:
-            pass
+                     caption="Single prediction waterfall")
+        except Exception as e:
+            st.error(f"shap_waterfall.png error: {e}")
